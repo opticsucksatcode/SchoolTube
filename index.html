@@ -324,30 +324,22 @@
             document.getElementById('loading').style.display = 'block';
             
             // List of common video file locations and names to check
-            const videoPaths = [
-                // Root directory
-                'testupload.mp4'
-                
-                // Videos directory
-                'videos/video.mp4', 'videos/movie.mp4', 'videos/clip.mp4',
-                'videos/sample.mp4', 'videos/demo.mp4', 'videos/test.mp4',
-                'videos/example.mp4', 'videos/film.mp4', 'videos/media.mp4',
-                
-                // Media directory
-                'media/video.mp4', 'media/movie.mp4', 'media/clip.mp4',
-                'media/sample.mp4', 'media/demo.mp4', 'media/test.mp4',
-                
-                // Assets directory
-                'assets/video.mp4', 'assets/movie.mp4', 'assets/media.mp4',
-                'assets/videos/video.mp4', 'assets/videos/movie.mp4',
-                
-                // Common numbered videos
-                'video1.mp4', 'video2.mp4', 'video3.mp4', 'video4.mp4', 'video5.mp4',
-                'videos/video1.mp4', 'videos/video2.mp4', 'videos/video3.mp4',
-                'media/video1.mp4', 'media/video2.mp4', 'media/video3.mp4'
-            ];
+            // 🚀 Replace the whole const videoPaths = [...] with this:
+async function getVideoPaths() {
+    try {
+        // Fetch the directory listing of /videos/
+        const response = await fetch("videos/");
+        const text = await response.text();
 
-            allVideos = [];
+        // Find all .mp4 links in the HTML directory listing
+        const matches = [...text.matchAll(/href="([^"]+\.mp4)"/gi)];
+        return matches.map(m => "videos/" + m[1]);
+    } catch (err) {
+        console.error("Could not scan videos folder:", err);
+        return [];
+    }
+}
+
             
             // Check each potential video path
             for (const path of videoPaths) {
