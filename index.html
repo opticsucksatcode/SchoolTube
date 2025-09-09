@@ -439,10 +439,10 @@
             element.onclick = () => playVideo(index);
 
             element.innerHTML = `
-                <img src="${video.thumbnailPath}" alt="${video.name}" class="related-thumbnail" onerror="this.src='https://via.placeholder.com/160x90/333/fff?text=No+Thumbnail'">
+                <img src="${video.thumbnailDataUrl || 'https://via.placeholder.com/160x90/333/fff?text=Loading...'}" alt="${video.name}" class="related-thumbnail" onerror="this.src='https://via.placeholder.com/160x90/333/fff?text=No+Preview'">
                 <div class="related-info">
                     <div class="related-title">${video.name}</div>
-                    <div class="related-meta">${video.duration} • ${video.uploadDate}</div>
+                    <div class="related-meta">${video.duration || 'Unknown'} • ${video.uploadDate}</div>
                 </div>
             `;
 
