@@ -17,7 +17,6 @@
             color: #fff;
         }
 
-        /* Header */
         .header {
             background-color: #212121;
             padding: 12px 24px;
@@ -60,14 +59,12 @@
             cursor: pointer;
         }
 
-        /* Main Content */
         .container {
             max-width: 1280px;
             margin: 0 auto;
             padding: 24px;
         }
 
-        /* Homepage Grid */
         .video-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -78,22 +75,43 @@
         .video-card {
             cursor: pointer;
             transition: transform 0.2s;
+            background-color: #1a1a1a;
+            border-radius: 12px;
+            overflow: hidden;
         }
 
         .video-card:hover {
             transform: scale(1.02);
         }
 
-        .thumbnail {
+        .thumbnail-container {
+            position: relative;
             width: 100%;
             aspect-ratio: 16/9;
+            background-color: #333;
+            overflow: hidden;
+        }
+
+        .thumbnail {
+            width: 100%;
+            height: 100%;
             object-fit: cover;
-            border-radius: 12px;
-            background-color: #303030;
+        }
+
+        .duration-badge {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
         }
 
         .video-info {
-            padding: 12px 0;
+            padding: 12px;
         }
 
         .video-title {
@@ -112,7 +130,6 @@
             color: #aaa;
         }
 
-        /* Video Player Page */
         .video-page {
             display: none;
             max-width: 1280px;
@@ -217,6 +234,20 @@
             background-color: #404040;
         }
 
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #aaa;
+            font-size: 18px;
+        }
+
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #ff6b6b;
+            font-size: 16px;
+        }
+
         @media (max-width: 1024px) {
             .video-content {
                 grid-template-columns: 1fr;
@@ -241,44 +272,28 @@
                 gap: 16px;
             }
         }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #aaa;
-        }
-
-        .error {
-            text-align: center;
-            padding: 40px;
-            color: #ff6b6b;
-        }
     </style>
 </head>
 <body>
-    <!-- Header -->
     <header class="header">
         <div class="logo">VideoTube</div>
         <div class="search-bar">
-            <input type="text" class="search-input" placeholder="Search videos...">
+            <input type="text" class="search-input" placeholder="Search videos..." id="searchInput">
             <button class="search-btn">🔍</button>
         </div>
     </header>
 
-    <!-- Homepage -->
     <div id="homepage" class="container">
-        <div id="loading" class="loading">Loading videos...</div>
+        <div id="loading" class="loading">Scanning for MP4 videos...</div>
         <div id="error" class="error" style="display: none;"></div>
         <div id="videoGrid" class="video-grid"></div>
     </div>
 
-    <!-- Video Player Page -->
     <div id="videoPage" class="video-page">
         <button class="back-btn" onclick="goHome()">← Back to Home</button>
         <div class="video-content">
             <div class="main-content">
                 <video id="mainVideo" class="main-video" controls>
-                    <source src="" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
                 <div class="video-details">
@@ -297,79 +312,202 @@
         let allVideos = [];
         let currentVideoIndex = 0;
 
-        // Common video file extensions
-        const videoExtensions = ['.mp4', '.webm', '.avi', '.mov', '.wmv', '.flv', '.m4v', '.mkv'];
-        const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'];
-
         // Initialize the app
-        async function initApp() {
-            try {
-                await loadVideos();
-                displayHomepage();
-            } catch (error) {
-                showError('Failed to load videos: ' + error.message);
+        document.addEventListener('DOMContentLoaded', function() {
+            setupSearch();
+            scanForVideos();
+        });
+
+        // Scan for MP4 videos in the site files
+        async function scanForVideos() {
+            document.getElementById('loading').textContent = 'Scanning for MP4 videos...';
+            document.getElementById('loading').style.display = 'block';
+            
+            // List of common video file locations and names to check
+            const videoPaths = [
+                // Root directory
+                'video.mp4', 'movie.mp4', 'clip.mp4', 'sample.mp4', 'demo.mp4',
+                'test.mp4', 'example.mp4', 'film.mp4', 'media.mp4',
+                
+                // Videos directory
+                'videos/video.mp4', 'videos/movie.mp4', 'videos/clip.mp4',
+                'videos/sample.mp4', 'videos/demo.mp4', 'videos/test.mp4',
+                'videos/example.mp4', 'videos/film.mp4', 'videos/media.mp4',
+                
+                // Media directory
+                'media/video.mp4', 'media/movie.mp4', 'media/clip.mp4',
+                'media/sample.mp4', 'media/demo.mp4', 'media/test.mp4',
+                
+                // Assets directory
+                'assets/video.mp4', 'assets/movie.mp4', 'assets/media.mp4',
+                'assets/videos/video.mp4', 'assets/videos/movie.mp4',
+                
+                // Common numbered videos
+                'video1.mp4', 'video2.mp4', 'video3.mp4', 'video4.mp4', 'video5.mp4',
+                'videos/video1.mp4', 'videos/video2.mp4', 'videos/video3.mp4',
+                'media/video1.mp4', 'media/video2.mp4', 'media/video3.mp4'
+            ];
+
+            allVideos = [];
+            
+            // Check each potential video path
+            for (const path of videoPaths) {
+                try {
+                    const response = await fetch(path, { method: 'HEAD' });
+                    if (response.ok) {
+                        const contentType = response.headers.get('content-type');
+                        if (contentType && contentType.startsWith('video/')) {
+                            const video = {
+                                name: path.split('/').pop().replace('.mp4', ''),
+                                videoPath: path,
+                                thumbnailDataUrl: null,
+                                duration: null,
+                                uploadDate: formatDate(new Date(response.headers.get('last-modified') || Date.now())),
+                                fileSize: formatFileSize(parseInt(response.headers.get('content-length') || '0'))
+                            };
+                            allVideos.push(video);
+                            console.log(`Found video: ${path}`);
+                        }
+                    }
+                } catch (error) {
+                    // File doesn't exist or can't be accessed, continue
+                }
+            }
+
+            if (allVideos.length === 0) {
+                showError('No MP4 videos found in site files. Please upload some MP4 files to your site directory (like ./videos/ or root folder).');
+                return;
+            }
+
+            console.log(`Found ${allVideos.length} video(s)`);
+            document.getElementById('loading').textContent = 'Generating thumbnails...';
+            
+            // Generate thumbnails for all found videos
+            await generateThumbnails();
+            displayHomepage();
+        }
+
+        // Generate thumbnails for all videos using first frame
+        async function generateThumbnails() {
+            for (let i = 0; i < allVideos.length; i++) {
+                const video = allVideos[i];
+                document.getElementById('loading').textContent = `Generating thumbnail ${i + 1}/${allVideos.length}...`;
+                
+                try {
+                    const thumbnail = await generateVideoThumbnail(video.videoPath);
+                    video.thumbnailDataUrl = thumbnail.dataUrl;
+                    video.duration = thumbnail.duration;
+                    console.log(`Generated thumbnail for: ${video.name}`);
+                } catch (error) {
+                    console.warn(`Failed to generate thumbnail for ${video.name}:`, error);
+                    video.thumbnailDataUrl = generateFallbackThumbnail(video.name);
+                    video.duration = 'Unknown';
+                }
             }
         }
 
-        // Load videos from the site's files
-        async function loadVideos() {
-            // In a real implementation, you would scan the server's file system
-            // For this demo, we'll create sample data that represents what would be found
-            allVideos = await scanForVideos();
+        // Generate thumbnail from video's first frame
+        function generateVideoThumbnail(videoPath) {
+            return new Promise((resolve, reject) => {
+                const video = document.createElement('video');
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                video.crossOrigin = 'anonymous';
+                video.muted = true;
+                video.preload = 'metadata';
+                video.style.display = 'none';
+                
+                // Add to DOM temporarily for some browsers
+                document.body.appendChild(video);
+                
+                const cleanup = () => {
+                    if (video.parentNode) {
+                        document.body.removeChild(video);
+                    }
+                };
+
+                const timeout = setTimeout(() => {
+                    cleanup();
+                    reject(new Error('Thumbnail generation timeout'));
+                }, 15000);
+
+                video.addEventListener('loadedmetadata', () => {
+                    canvas.width = 320;
+                    canvas.height = 180;
+                    // Seek to 1 second or 10% of video, whichever is smaller
+                    const seekTime = Math.min(1, video.duration * 0.1);
+                    video.currentTime = seekTime;
+                });
+
+                video.addEventListener('seeked', () => {
+                    try {
+                        // Draw the video frame to canvas
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        
+                        // Convert to data URL
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                        const duration = formatDuration(video.duration);
+                        
+                        clearTimeout(timeout);
+                        cleanup();
+                        resolve({ dataUrl, duration });
+                    } catch (error) {
+                        clearTimeout(timeout);
+                        cleanup();
+                        reject(error);
+                    }
+                });
+
+                video.addEventListener('error', (e) => {
+                    clearTimeout(timeout);
+                    cleanup();
+                    reject(new Error(`Video loading error: ${e.message || 'Unknown error'}`));
+                });
+
+                // Start loading the video
+                video.src = videoPath;
+                video.load();
+            });
         }
 
-        // Simulate scanning for video files and their thumbnails
-        async function scanForVideos() {
-            // This would normally scan your server's video directory
-            // For demo purposes, we'll create sample video data
-            const sampleVideos = [
-                {
-                    name: 'Sample Video 1',
-                    videoPath: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-                    thumbnailPath: 'https://via.placeholder.com/320x180/ff4444/ffffff?text=Sample+Video+1',
-                    duration: '10:25',
-                    uploadDate: '2 days ago'
-                },
-                {
-                    name: 'Sample Video 2',
-                    videoPath: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-                    thumbnailPath: 'https://via.placeholder.com/320x180/44ff44/ffffff?text=Sample+Video+2',
-                    duration: '15:30',
-                    uploadDate: '1 week ago'
-                },
-                {
-                    name: 'Sample Video 3',
-                    videoPath: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-                    thumbnailPath: 'https://via.placeholder.com/320x180/4444ff/ffffff?text=Sample+Video+3',
-                    duration: '5:45',
-                    uploadDate: '3 weeks ago'
-                }
-            ];
-
-            // In a real application, you would:
-            // 1. Scan a directory for video files
-            // 2. For each video file, look for a matching thumbnail file
-            // 3. Extract metadata like duration, file size, etc.
+        // Generate fallback thumbnail if video thumbnail fails
+        function generateFallbackThumbnail(name) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 320;
+            canvas.height = 180;
+            const ctx = canvas.getContext('2d');
             
-            /* Real implementation would look like:
-            const response = await fetch('/api/scan-videos');
-            const videoFiles = await response.json();
+            // Create gradient background
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            gradient.addColorStop(0, '#ff4444');
+            gradient.addColorStop(1, '#cc0000');
             
-            return videoFiles.map(file => ({
-                name: file.name.replace(/\.[^/.]+$/, ""), // Remove extension
-                videoPath: file.videoPath,
-                thumbnailPath: file.thumbnailPath,
-                duration: file.duration,
-                uploadDate: formatDate(file.dateCreated)
-            }));
-            */
-
-            return sampleVideos;
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Add play icon
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.beginPath();
+            ctx.moveTo(canvas.width/2 - 20, canvas.height/2 - 15);
+            ctx.lineTo(canvas.width/2 - 20, canvas.height/2 + 15);
+            ctx.lineTo(canvas.width/2 + 15, canvas.height/2);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Add video name
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(name.substring(0, 20), canvas.width/2, canvas.height - 20);
+            
+            return canvas.toDataURL('image/jpeg', 0.8);
         }
 
-        // Display the homepage with video grid
+        // Display homepage with videos
         function displayHomepage() {
             document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
             document.getElementById('homepage').style.display = 'block';
             document.getElementById('videoPage').style.display = 'none';
             
@@ -380,26 +518,31 @@
                 const videoCard = createVideoCard(video, index);
                 videoGrid.appendChild(videoCard);
             });
+
+            console.log(`Displayed ${allVideos.length} videos`);
         }
 
-        // Create a video card element
+        // Create video card
         function createVideoCard(video, index) {
             const card = document.createElement('div');
             card.className = 'video-card';
             card.onclick = () => playVideo(index);
 
             card.innerHTML = `
-                <img src="${video.thumbnailPath}" alt="${video.name}" class="thumbnail" onerror="this.src='https://via.placeholder.com/320x180/333/fff?text=No+Thumbnail'">
+                <div class="thumbnail-container">
+                    <img src="${video.thumbnailDataUrl}" alt="${video.name}" class="thumbnail" loading="lazy">
+                    <div class="duration-badge">${video.duration || 'Loading...'}</div>
+                </div>
                 <div class="video-info">
                     <div class="video-title">${video.name}</div>
-                    <div class="video-meta">${video.duration} • ${video.uploadDate}</div>
+                    <div class="video-meta">${video.uploadDate} • ${video.fileSize}</div>
                 </div>
             `;
 
             return card;
         }
 
-        // Play a specific video
+        // Play video
         function playVideo(index) {
             currentVideoIndex = index;
             const video = allVideos[index];
@@ -407,19 +550,16 @@
             document.getElementById('homepage').style.display = 'none';
             document.getElementById('videoPage').style.display = 'block';
 
-            // Set up main video
             const mainVideo = document.getElementById('mainVideo');
             mainVideo.src = video.videoPath;
             
-            // Set video details
             document.getElementById('videoTitle').textContent = video.name;
-            document.getElementById('videoStats').textContent = `${video.duration} • ${video.uploadDate}`;
+            document.getElementById('videoStats').textContent = `${video.duration || 'Unknown'} • ${video.uploadDate} • ${video.fileSize}`;
 
-            // Display related videos (all other videos)
             displayRelatedVideos(index);
         }
 
-        // Display related videos in sidebar
+        // Display related videos
         function displayRelatedVideos(currentIndex) {
             const relatedContainer = document.getElementById('relatedVideos');
             relatedContainer.innerHTML = '';
@@ -439,7 +579,7 @@
             element.onclick = () => playVideo(index);
 
             element.innerHTML = `
-                <img src="${video.thumbnailDataUrl || 'https://via.placeholder.com/160x90/333/fff?text=Loading...'}" alt="${video.name}" class="related-thumbnail" onerror="this.src='https://via.placeholder.com/160x90/333/fff?text=No+Preview'">
+                <img src="${video.thumbnailDataUrl}" alt="${video.name}" class="related-thumbnail" loading="lazy">
                 <div class="related-info">
                     <div class="related-title">${video.name}</div>
                     <div class="related-meta">${video.duration || 'Unknown'} • ${video.uploadDate}</div>
@@ -454,26 +594,54 @@
             displayHomepage();
         }
 
-        // Show error message
+        // Show error
         function showError(message) {
             document.getElementById('loading').style.display = 'none';
             document.getElementById('error').style.display = 'block';
             document.getElementById('error').textContent = message;
         }
 
-        // Search functionality
-        document.querySelector('.search-input').addEventListener('input', function(e) {
-            const searchTerm = e.target.value.toLowerCase();
-            const videoCards = document.querySelectorAll('.video-card');
-            
-            videoCards.forEach(card => {
-                const title = card.querySelector('.video-title').textContent.toLowerCase();
-                card.style.display = title.includes(searchTerm) ? 'block' : 'none';
+        // Setup search
+        function setupSearch() {
+            document.getElementById('searchInput').addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase();
+                const videoCards = document.querySelectorAll('.video-card');
+                
+                videoCards.forEach(card => {
+                    const title = card.querySelector('.video-title').textContent.toLowerCase();
+                    card.style.display = title.includes(searchTerm) ? 'block' : 'none';
+                });
             });
-        });
+        }
 
-        // Initialize the app when the page loads
-        document.addEventListener('DOMContentLoaded', initApp);
+        // Utility functions
+        function formatDuration(seconds) {
+            if (!seconds || isNaN(seconds)) return 'Unknown';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function formatDate(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            
+            if (days === 0) return 'Today';
+            if (days === 1) return '1 day ago';
+            if (days < 7) return `${days} days ago`;
+            if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
+            return `${Math.floor(days / 30)} months ago`;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return 'Unknown size';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
     </script>
 </body>
 </html>
